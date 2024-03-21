@@ -1,0 +1,11 @@
+[package]
+name = "arduino_test_dashboard"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+bincode = "1.3.3"
+eframe = "0.26.2"
+egui_plot = "0.26.2"
+serde = "1.0.197"
+serial2 = "0.2.20"
