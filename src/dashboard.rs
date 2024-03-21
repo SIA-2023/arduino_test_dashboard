@@ -5,8 +5,8 @@ use serde::{Serialize, Deserialize};
 
 #[derive(Serialize, Deserialize, Clone, Copy, Default, Debug)]
 struct Msg {
-	sin_value: f32,
-	cos_value: f32,
+	left_motor: i32,
+	right_motor: i32,
 }
 
 pub struct Dashboard {
@@ -75,9 +75,20 @@ impl Dashboard {
 			}
 		}
 
-		show_plot(ui, "sin_value", &self.messages, self.current_message_index, |msg| msg.sin_value as f64);
-		show_plot(ui, "cos_value", &self.messages, self.current_message_index, |msg| msg.cos_value as f64);
-
+		ui.label("left_motor:");
+		ui.horizontal(|ui| {
+			vertical_percentage_bar(ui, self.messages[self.current_message_index].left_motor as f32 / 255.0, egui::vec2(30.0, 100.0));
+			horizontal_percentage_bar(ui, self.messages[self.current_message_index].left_motor as f32 / 255.0, egui::vec2(100.0, 30.0));
+		});
+		show_plot(ui, "left_motor", &self.messages, self.current_message_index, |msg| msg.left_motor as f64);
+		
+		ui.label("right_motor:");
+		ui.horizontal(|ui| {
+			vertical_percentage_bar(ui, self.messages[self.current_message_index].right_motor as f32 / 255.0, egui::vec2(30.0, 100.0));
+			horizontal_percentage_bar(ui, self.messages[self.current_message_index].right_motor as f32 / 255.0, egui::vec2(100.0, 30.0));
+		});
+		show_plot(ui, "right_motor", &self.messages, self.current_message_index, |msg| msg.right_motor as f64);
+		
 		egui::Window::new("Raw data window")
 			.open(&mut self.show_raw_data_window)
 			.show(ui.ctx(), |ui| {
@@ -116,8 +127,6 @@ fn pick_port_ui(ui: &mut egui::Ui, port_name: &mut Option<std::path::PathBuf>) -
 }
 
 fn show_plot(ui: &mut egui::Ui, name: &str, messages: &[Msg], current_message_index: usize, callback: impl Fn(&Msg) -> f64) {
-	ui.label(format!("{}:", name));
-
 	Plot::new(name)
 		.y_axis_width(2)
 		.height(150.0)
@@ -138,6 +147,28 @@ fn show_plot(ui: &mut egui::Ui, name: &str, messages: &[Msg], current_message_in
 					.name(name)
 			);
 		});
+}
+
+fn vertical_percentage_bar(ui: &mut egui::Ui, mut percentage: f32, size: egui::Vec2) {
+	percentage = percentage.clamp(0.0, 1.0);
+	
+	let rect = egui::Rect::from_min_size(ui.cursor().min, size);
+	let percentage_rect = egui::Rect::from_min_size(rect.left_bottom() - egui::vec2(0.0, size.y * percentage), egui::vec2(size.x, size.y * percentage));
+	ui.allocate_rect(rect, egui::Sense::hover());
+
+	ui.painter().rect_filled(rect, 0.0, egui::Color32::from_gray(80));
+	ui.painter().rect_filled(percentage_rect, 0.0, egui::Color32::RED);
+}
+
+fn horizontal_percentage_bar(ui: &mut egui::Ui, mut percentage: f32, size: egui::Vec2) {
+	percentage = percentage.clamp(0.0, 1.0);
+	
+	let rect = egui::Rect::from_min_size(ui.cursor().min, size);
+	let percentage_rect = egui::Rect::from_min_size(rect.min, egui::vec2(size.x * percentage, size.y));
+	ui.allocate_rect(rect, egui::Sense::hover());
+
+	ui.painter().rect_filled(rect, 0.0, egui::Color32::from_gray(80));
+	ui.painter().rect_filled(percentage_rect, 0.0, egui::Color32::RED);
 }
 
 fn listen_thread(port: SerialPort, sender: std::sync::mpsc::Sender<Msg>) {

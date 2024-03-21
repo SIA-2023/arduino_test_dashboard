@@ -3,8 +3,8 @@ void setup() {
 }
 
 struct Msg {
-  float sin_value = 0.f;
-  float cos_value = 0.f;
+  int32_t left_motor = 0;
+  int32_t right_motor = 0;
 };
 
 void loop() {
@@ -19,8 +19,8 @@ void loop() {
   }
   
   Msg msg{};
-  msg.sin_value = sin(t * 20.f * time_scale);
-  msg.cos_value = cos(t * 20.f * time_scale);
+  msg.left_motor = (sin(t * 20.f * time_scale) / 2.f + 0.5f) * 255;
+  msg.right_motor = (cos(t * 20.f * time_scale) / 2.f + 0.5f) * 255;
   Serial.write((const uint8_t*)&msg, sizeof(msg));
   Serial.write('\n');
 }
