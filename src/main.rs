@@ -3,6 +3,8 @@ use eframe::egui;
 mod dashboard;
 use dashboard::Dashboard;
 
+mod serial;
+
 fn main() -> Result<(), eframe::Error> {
 	let options = eframe::NativeOptions::default();
 	let mut dashboard = Dashboard::new();

@@ -1,10 +1,10 @@
 use eframe::egui;
 use egui_plot::{Plot, Line, PlotPoint, PlotPoints};
-use serial2::SerialPort;
 use serde::{Serialize, Deserialize};
+use crate::serial::Serial;
 
 #[derive(Serialize, Deserialize, Clone, Copy, Default, Debug)]
-struct Msg {
+pub struct Msg {
 	left_motor: i32,
 	right_motor: i32,
 }
@@ -12,10 +12,9 @@ struct Msg {
 pub struct Dashboard {
 	messages: [Msg; 60],
 	current_message_index: usize,
-	port: Option<serial2::SerialPort>,
+	serial: Option<Serial>,
 	port_name: Option<std::path::PathBuf>,
 	show_raw_data_window: bool,
-	receiver: Option<std::sync::mpsc::Receiver<Msg>>,
 }
 
 impl Dashboard {
@@ -23,55 +22,53 @@ impl Dashboard {
 		Self {
 			messages: [Msg::default(); 60],
 			current_message_index: 0,
-			port: None,
+			serial: None,
 			port_name: None,
 			show_raw_data_window: false,
-			receiver: None,
 		}
 	}
 
 	pub fn ui(&mut self, ui: &mut egui::Ui) {
 		ui.ctx().request_repaint(); // reactive mode doesn't react to new serial msgs
 		
-		if let Some(receiver) = &self.receiver {
-			while let Ok(msg) = receiver.try_recv() {
+		let serial_connected = if let Some(serial) = &self.serial {
+			serial.is_connected()
+		}
+		else {
+			false
+		};
+		if !serial_connected && self.serial.is_some() {
+			self.serial = None;
+			self.port_name = None;
+		}
+
+		if let Some(serial) = &mut self.serial {
+			serial.collect_messages(|msg| {
 				self.current_message_index = (self.current_message_index + 1) % self.messages.len();
 				self.messages[self.current_message_index % self.messages.len()] = msg;
-			}
+			});
 		}
 
 		// background
 		ui.painter().rect_filled(egui::Rect::from_min_max(egui::pos2(0.0, 0.0), ui.ctx().screen_rect().size().to_pos2()), 0.0, egui::Color32::BLACK);
 
 		if pick_port_ui(ui, &mut self.port_name) {
-			match &self.port_name {
-				Some(port_name) => {
-					self.port = Some(SerialPort::open(port_name, 9600).unwrap());
-					let port_clone = self.port.as_ref().unwrap().try_clone().unwrap();
-					let (mpsc_sender, mpsc_receiver) = std::sync::mpsc::channel();
-					self.receiver = Some(mpsc_receiver);
-					std::thread::spawn(move || listen_thread(port_clone, mpsc_sender));
-				},
-				None => {
-					self.port = None;
-					self.receiver = None;
-				}
-			}
+			self.serial = self.port_name.as_ref().map(|port_name| Serial::new(port_name).unwrap());
 		}
 
 		if !self.show_raw_data_window && ui.button("Show raw data window").clicked() {
 			self.show_raw_data_window = true;
 		}
 
-		if let Some(port) = self.port.as_ref() {
+		if let Some(serial) = self.serial.as_ref() {
 			ui.label("Controls:");
 
 			if ui.button("+").clicked() {
-				let _ = port.write(b"+");
+				let _ = serial.write(b"+");
 			}
 
 			if ui.button("-").clicked() {
-				let _ = port.write(b"-");
+				let _ = serial.write(b"-");
 			}
 		}
 
@@ -103,7 +100,7 @@ impl Dashboard {
 
 // returns wether port changed
 fn pick_port_ui(ui: &mut egui::Ui, port_name: &mut Option<std::path::PathBuf>) -> bool {
-	if let Ok(ports) = SerialPort::available_ports() {
+	if let Ok(ports) = Serial::available_ports() {
 		let mut changed = false;
 		egui::ComboBox::from_label("Pick port")
 			.selected_text(port_name.clone().unwrap_or(std::path::PathBuf::from("Pick port")).to_str().unwrap())
@@ -128,7 +125,7 @@ fn pick_port_ui(ui: &mut egui::Ui, port_name: &mut Option<std::path::PathBuf>) -
 
 fn show_plot(ui: &mut egui::Ui, name: &str, messages: &[Msg], current_message_index: usize, callback: impl Fn(&Msg) -> f64) {
 	Plot::new(name)
-		.y_axis_width(2)
+		.y_axis_width(3)
 		.height(150.0)
 		.allow_drag(false)
 		.allow_zoom(false)
@@ -169,33 +166,5 @@ fn horizontal_percentage_bar(ui: &mut egui::Ui, mut percentage: f32, size: egui:
 
 	ui.painter().rect_filled(rect, 0.0, egui::Color32::from_gray(80));
 	ui.painter().rect_filled(percentage_rect, 0.0, egui::Color32::RED);
-}
-
-fn listen_thread(port: SerialPort, sender: std::sync::mpsc::Sender<Msg>) {
-	let mut bytes: Vec<u8> = Vec::new();
-	let mut current_byte = [0_u8];
-	loop {
-		match port.read(&mut current_byte) {
-			Ok(bytes_read) => {
-				if bytes_read == 1 {
-					if current_byte[0] == b'\n' {
-						if let Ok(msg) = bincode::deserialize(&bytes) {
-							if sender.send(msg).is_err() {
-								return; // the receiver was dropped -> close this thread
-							}
-						}
-						
-						bytes.clear();
-					}
-					else {
-						bytes.push(current_byte[0]);
-					}
-				}
-			},
-			Err(e) => {
-				eprintln!("error reading: {e}");
-			}
-		}
-	}
 }
 
