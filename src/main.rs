@@ -5,6 +5,8 @@ use dashboard::Dashboard;
 
 mod serial;
 
+mod widgets;
+
 fn main() -> Result<(), eframe::Error> {
 	let options = eframe::NativeOptions::default();
 	let mut dashboard = Dashboard::new();

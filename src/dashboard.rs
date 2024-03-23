@@ -1,12 +1,15 @@
 use eframe::egui;
-use egui_plot::{Plot, Line, PlotPoint, PlotPoints};
 use serde::{Serialize, Deserialize};
 use crate::serial::Serial;
+use crate::widgets::{circle, horizontal_percentage_bar, show_plot, vertical_percentage_bar, wheel};
 
 #[derive(Serialize, Deserialize, Clone, Copy, Default, Debug)]
+#[repr(C)]
 pub struct Msg {
 	left_motor: i32,
 	right_motor: i32,
+	left_sensor: bool,
+	right_sensor: bool,
 }
 
 pub struct Dashboard {
@@ -72,24 +75,34 @@ impl Dashboard {
 			}
 		}
 
+		let current_msg = &self.messages[self.current_message_index];
+
 		ui.label("left_motor:");
 		ui.horizontal(|ui| {
-			vertical_percentage_bar(ui, self.messages[self.current_message_index].left_motor as f32 / 255.0, egui::vec2(30.0, 100.0));
-			horizontal_percentage_bar(ui, self.messages[self.current_message_index].left_motor as f32 / 255.0, egui::vec2(100.0, 30.0));
+			vertical_percentage_bar(ui, current_msg.left_motor.abs() as f32 / 255.0, egui::vec2(30.0, 100.0));
+			horizontal_percentage_bar(ui, current_msg.left_motor.abs() as f32 / 255.0, egui::vec2(100.0, 30.0));
+			wheel(ui, current_msg.left_motor as f32 / 255.0, egui::vec2(30.0, 100.0));
 		});
 		show_plot(ui, "left_motor", &self.messages, self.current_message_index, |msg| msg.left_motor as f64);
 		
 		ui.label("right_motor:");
 		ui.horizontal(|ui| {
-			vertical_percentage_bar(ui, self.messages[self.current_message_index].right_motor as f32 / 255.0, egui::vec2(30.0, 100.0));
-			horizontal_percentage_bar(ui, self.messages[self.current_message_index].right_motor as f32 / 255.0, egui::vec2(100.0, 30.0));
+			vertical_percentage_bar(ui, current_msg.right_motor.abs() as f32 / 255.0, egui::vec2(30.0, 100.0));
+			horizontal_percentage_bar(ui, current_msg.right_motor.abs() as f32 / 255.0, egui::vec2(100.0, 30.0));
+			wheel(ui, current_msg.right_motor as f32 / 255.0, egui::vec2(30.0, 100.0));
 		});
 		show_plot(ui, "right_motor", &self.messages, self.current_message_index, |msg| msg.right_motor as f64);
 		
+		ui.label("left_sensor:");
+		circle(ui, 25.0, if current_msg.left_sensor { egui::Color32::WHITE } else { egui::Color32::BLACK });
+
+		ui.label("right_sensor:");
+		circle(ui, 25.0, if current_msg.right_sensor { egui::Color32::WHITE } else { egui::Color32::BLACK });
+
 		egui::Window::new("Raw data window")
 			.open(&mut self.show_raw_data_window)
 			.show(ui.ctx(), |ui| {
-				Self::raw_data_ui(ui, &self.messages[self.current_message_index]);
+				Self::raw_data_ui(ui, current_msg);
 			});
 	}
 
@@ -122,49 +135,3 @@ fn pick_port_ui(ui: &mut egui::Ui, port_name: &mut Option<std::path::PathBuf>) -
 		false
 	}
 }
-
-fn show_plot(ui: &mut egui::Ui, name: &str, messages: &[Msg], current_message_index: usize, callback: impl Fn(&Msg) -> f64) {
-	Plot::new(name)
-		.y_axis_width(3)
-		.height(150.0)
-		.allow_drag(false)
-		.allow_zoom(false)
-		.allow_boxed_zoom(false)
-		.allow_scroll(false)
-		.show(ui, |ui| {
-			let mut points: Vec<PlotPoint> = Vec::with_capacity(messages.len());
-			for i in (1..messages.len()+1).rev() {
-				let index = (i + current_message_index) % messages.len();
-				let value = callback(&messages[index]);
-				points.push(PlotPoint::new(i as f64 - 1.0, value));
-			}
-
-			ui.line(
-				Line::new(PlotPoints::Owned(points))
-					.name(name)
-			);
-		});
-}
-
-fn vertical_percentage_bar(ui: &mut egui::Ui, mut percentage: f32, size: egui::Vec2) {
-	percentage = percentage.clamp(0.0, 1.0);
-	
-	let rect = egui::Rect::from_min_size(ui.cursor().min, size);
-	let percentage_rect = egui::Rect::from_min_size(rect.left_bottom() - egui::vec2(0.0, size.y * percentage), egui::vec2(size.x, size.y * percentage));
-	ui.allocate_rect(rect, egui::Sense::hover());
-
-	ui.painter().rect_filled(rect, 0.0, egui::Color32::from_gray(80));
-	ui.painter().rect_filled(percentage_rect, 0.0, egui::Color32::RED);
-}
-
-fn horizontal_percentage_bar(ui: &mut egui::Ui, mut percentage: f32, size: egui::Vec2) {
-	percentage = percentage.clamp(0.0, 1.0);
-	
-	let rect = egui::Rect::from_min_size(ui.cursor().min, size);
-	let percentage_rect = egui::Rect::from_min_size(rect.min, egui::vec2(size.x * percentage, size.y));
-	ui.allocate_rect(rect, egui::Sense::hover());
-
-	ui.painter().rect_filled(rect, 0.0, egui::Color32::from_gray(80));
-	ui.painter().rect_filled(percentage_rect, 0.0, egui::Color32::RED);
-}
-
