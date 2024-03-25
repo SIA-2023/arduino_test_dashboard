@@ -1,6 +1,6 @@
 use eframe::egui;
 use egui_plot::{Plot, Line, PlotPoint, PlotPoints};
-use crate::dashboard::Msg;
+use crate::serial::Msg;
 
 pub fn circle(ui: &mut egui::Ui, radius: f32, color: egui::Color32) {
 	ui.painter().circle(ui.cursor().min + egui::vec2(radius, radius), radius, color, egui::Stroke::new(1.0, egui::Color32::RED));

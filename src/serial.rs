@@ -1,6 +1,18 @@
-use crate::dashboard::Msg;
 use std::path::PathBuf;
 use serial2::SerialPort;
+use serde::{Serialize, Deserialize};
+
+#[derive(Serialize, Deserialize, Clone, Copy, Default, Debug)]
+#[repr(C)]
+pub struct Msg {
+	pub left_motor: i32,
+	pub right_motor: i32,
+	pub kp: f32,
+	pub ki: f32,
+	pub kd: f32,
+	pub left_sensor: bool,
+	pub right_sensor: bool,
+}
 
 pub struct Serial {
 	port: SerialPort,
@@ -28,8 +40,16 @@ impl Serial {
 		}
 	}
 
-	pub fn write(&self, bytes: &[u8]) -> std::io::Result<usize> {
-		self.port.write(bytes)
+	pub fn set_kp(&self, value: f32) -> std::io::Result<usize> {
+		self.port.write(format!("p{value}\n").as_bytes())
+	}
+
+	pub fn set_ki(&self, value: f32) -> std::io::Result<usize> {
+		self.port.write(format!("i{value}\n").as_bytes())
+	}
+
+	pub fn set_kd(&self, value: f32) -> std::io::Result<usize> {
+		self.port.write(format!("d{value}\n").as_bytes())
 	}
 
 	pub fn is_connected(&self) -> bool {

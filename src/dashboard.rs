@@ -1,23 +1,15 @@
 use eframe::egui;
-use serde::{Serialize, Deserialize};
-use crate::serial::Serial;
+use crate::serial::{Serial, Msg};
 use crate::widgets::{circle, horizontal_percentage_bar, show_plot, vertical_percentage_bar, wheel};
-
-#[derive(Serialize, Deserialize, Clone, Copy, Default, Debug)]
-#[repr(C)]
-pub struct Msg {
-	left_motor: i32,
-	right_motor: i32,
-	left_sensor: bool,
-	right_sensor: bool,
-}
 
 pub struct Dashboard {
 	messages: [Msg; 60],
 	current_message_index: usize,
 	serial: Option<Serial>,
 	port_name: Option<std::path::PathBuf>,
-	show_raw_data_window: bool,
+	kp: f32,
+	ki: f32,
+	kd: f32,
 }
 
 impl Dashboard {
@@ -27,7 +19,9 @@ impl Dashboard {
 			current_message_index: 0,
 			serial: None,
 			port_name: None,
-			show_raw_data_window: false,
+			kp: 0.0,
+			ki: 0.0,
+			kd: 0.0,
 		}
 	}
 
@@ -59,24 +53,26 @@ impl Dashboard {
 			self.serial = self.port_name.as_ref().map(|port_name| Serial::new(port_name).unwrap());
 		}
 
-		if !self.show_raw_data_window && ui.button("Show raw data window").clicked() {
-			self.show_raw_data_window = true;
-		}
-
 		if let Some(serial) = self.serial.as_ref() {
 			ui.label("Controls:");
 
-			if ui.button("+").clicked() {
-				let _ = serial.write(b"+");
+			if ui.add(egui::Slider::new(&mut self.kp, 0.0..=1.0).text("kp")).changed() {
+				let _ = serial.set_kp(self.kp);
 			}
-
-			if ui.button("-").clicked() {
-				let _ = serial.write(b"-");
+			if ui.add(egui::Slider::new(&mut self.ki, 0.0..=1.0).text("ki")).changed() {
+				let _ = serial.set_ki(self.ki);
+			}
+			if ui.add(egui::Slider::new(&mut self.kd, 0.0..=1.0).text("kd")).changed() {
+				let _ = serial.set_kd(self.kd);
 			}
 		}
 
 		let current_msg = &self.messages[self.current_message_index];
 
+		ui.label(format!("kp = {}", current_msg.kp));
+		ui.label(format!("ki = {}", current_msg.ki));
+		ui.label(format!("kd = {}", current_msg.kd));
+		
 		ui.label("left_motor:");
 		ui.horizontal(|ui| {
 			vertical_percentage_bar(ui, current_msg.left_motor.abs() as f32 / 255.0, egui::vec2(30.0, 100.0));
@@ -98,16 +94,6 @@ impl Dashboard {
 
 		ui.label("right_sensor:");
 		circle(ui, 25.0, if current_msg.right_sensor { egui::Color32::WHITE } else { egui::Color32::BLACK });
-
-		egui::Window::new("Raw data window")
-			.open(&mut self.show_raw_data_window)
-			.show(ui.ctx(), |ui| {
-				Self::raw_data_ui(ui, current_msg);
-			});
-	}
-
-	fn raw_data_ui(ui: &mut egui::Ui, msg: &Msg) {
-		ui.label(format!("{:#?}", msg));
 	}
 }
 
