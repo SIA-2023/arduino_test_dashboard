@@ -40,16 +40,12 @@ impl Serial {
 		}
 	}
 
-	pub fn set_kp(&self, value: f32) -> std::io::Result<usize> {
-		self.port.write(format!("p{value}\n").as_bytes())
-	}
-
-	pub fn set_ki(&self, value: f32) -> std::io::Result<usize> {
-		self.port.write(format!("i{value}\n").as_bytes())
-	}
-
-	pub fn set_kd(&self, value: f32) -> std::io::Result<usize> {
-		self.port.write(format!("d{value}\n").as_bytes())
+	pub fn set_value(&self, target: char, value: f32) -> std::io::Result<usize> {
+		let mut buf = [0_u8; 6];
+		buf[0] = target as u8;
+		buf[1..=4].copy_from_slice(&value.to_ne_bytes());
+		buf[5] = b'\n';
+		self.port.write(&buf)
 	}
 
 	pub fn is_connected(&self) -> bool {

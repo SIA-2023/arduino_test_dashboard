@@ -57,13 +57,13 @@ impl Dashboard {
 			ui.label("Controls:");
 
 			if ui.add(egui::Slider::new(&mut self.kp, 0.0..=1.0).text("kp")).changed() {
-				let _ = serial.set_kp(self.kp);
+				let _ = serial.set_value('p', self.kp);
 			}
 			if ui.add(egui::Slider::new(&mut self.ki, 0.0..=1.0).text("ki")).changed() {
-				let _ = serial.set_ki(self.ki);
+				let _ = serial.set_value('i', self.ki);
 			}
 			if ui.add(egui::Slider::new(&mut self.kd, 0.0..=1.0).text("kd")).changed() {
-				let _ = serial.set_kd(self.kd);
+				let _ = serial.set_value('d', self.kd);
 			}
 		}
 

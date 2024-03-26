@@ -1,2 +1,5 @@
 # cargo (rust) build directory
 target/
+
+# VSCode
+.vscode/

@@ -8,10 +8,11 @@ mod serial;
 mod widgets;
 
 fn main() -> Result<(), eframe::Error> {
-	let options = eframe::NativeOptions::default();
+	let viewport = egui::ViewportBuilder::default().with_inner_size([1200.0, 850.0]);
+	let options = eframe::NativeOptions{ viewport, ..Default::default() };
 	let mut dashboard = Dashboard::new();
 
-	eframe::run_simple_native("Dashboard", options, move |ctx, _frame| {
+	eframe::run_simple_native("Test Dashboard", options, move |ctx, _frame| {
 		egui::CentralPanel::default().show(ctx, |ui| {
 			dashboard.ui(ui);
 		});
