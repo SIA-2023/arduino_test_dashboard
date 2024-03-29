@@ -3,7 +3,7 @@ use crate::serial::{Serial, Msg};
 use crate::widgets::{circle, horizontal_percentage_bar, show_plot, vertical_percentage_bar, wheel};
 
 pub struct Dashboard {
-	messages: [Msg; 60],
+	messages: [Msg; 500],
 	current_message_index: usize,
 	serial: Option<Serial>,
 	port_name: Option<std::path::PathBuf>,
@@ -15,7 +15,7 @@ pub struct Dashboard {
 impl Dashboard {
 	pub fn new() -> Self {
 		Self {
-			messages: [Msg::default(); 60],
+			messages: [Msg::default(); 500],
 			current_message_index: 0,
 			serial: None,
 			port_name: None,

@@ -22,7 +22,7 @@ pub struct Serial {
 
 impl Serial {
 	pub fn new(port_name: &PathBuf) -> std::io::Result<Self> {
-		let port = SerialPort::open(port_name, 9600)?;
+		let port = SerialPort::open(port_name, 115200)?;
 		let port_clone = port.try_clone()?;
 		let (sender, receiver) = std::sync::mpsc::channel();
 		std::thread::spawn(move || Self::listen_thread(port_clone, sender));

@@ -3,7 +3,7 @@ float ki = 0.f;
 float kd = 0.f;
 
 void setup() {
-	Serial.begin(9600);
+	Serial.begin(115200);
 }
 
 void loop() {
