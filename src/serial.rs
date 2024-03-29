@@ -41,11 +41,7 @@ impl Serial {
 	}
 
 	pub fn set_value(&self, target: char, value: f32) -> std::io::Result<usize> {
-		let mut buf = [0_u8; 6];
-		buf[0] = target as u8;
-		buf[1..=4].copy_from_slice(&value.to_ne_bytes());
-		buf[5] = b'\n';
-		self.port.write(&buf)
+		self.port.write(format!("{target}{value}\n").as_bytes())
 	}
 
 	pub fn is_connected(&self) -> bool {
@@ -61,24 +57,49 @@ impl Serial {
 		SerialPort::available_ports()
 	}
 
+	fn parse_msg(input: &str) -> Option<Msg> {
+		let parts: Vec<&str> = input.split(',').collect();
+		if parts.len() != 7 {
+			return None;
+		}
+	
+		let left_motor = parts[0].parse::<i32>().ok()?;
+		let right_motor = parts[1].parse::<i32>().ok()?;
+		let left_sensor = parts[2].parse::<i32>().ok()? == 1;
+		let right_sensor = parts[3].parse::<i32>().ok()? == 1;
+		let kp = parts[4].parse::<f32>().ok()?;
+		let ki = parts[5].parse::<f32>().ok()?;
+		let kd = parts[6].parse::<f32>().ok()?;
+	
+		Some(Msg {
+			left_motor,
+			right_motor,
+			left_sensor,
+			right_sensor,
+			kp,
+			ki,
+			kd,
+		})
+	}
+
 	fn listen_thread(port: SerialPort, sender: std::sync::mpsc::Sender<Msg>) {
-		let mut bytes: Vec<u8> = Vec::new();
+		let mut msg = String::new();
 		let mut current_byte = [0_u8];
 		loop {
 			match port.read(&mut current_byte) {
 				Ok(bytes_read) => {
 					if bytes_read == 1 {
 						if current_byte[0] == b'\n' {
-							if let Ok(msg) = bincode::deserialize(&bytes) {
+							if let Some(msg) = Self::parse_msg(&msg) {
 								if sender.send(msg).is_err() {
 									return; // the receiver was dropped -> close this thread
 								}
 							}
 							
-							bytes.clear();
+							msg.clear();
 						}
 						else {
-							bytes.push(current_byte[0]);
+							msg.push(current_byte[0] as char);
 						}
 					}
 				},
