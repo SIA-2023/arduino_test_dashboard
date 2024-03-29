@@ -6,5 +6,4 @@ edition = "2021"
 [dependencies]
 eframe = "0.26.2"
 egui_plot = "0.26.2"
-serde = "1.0.197"
 serial2 = "0.2.20"

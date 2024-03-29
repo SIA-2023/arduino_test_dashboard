@@ -1,9 +1,7 @@
 use std::path::PathBuf;
 use serial2::SerialPort;
-use serde::{Serialize, Deserialize};
 
-#[derive(Serialize, Deserialize, Clone, Copy, Default, Debug)]
-#[repr(C)]
+#[derive(Clone, Copy, Default, Debug)]
 pub struct Msg {
 	pub left_motor: i32,
 	pub right_motor: i32,
