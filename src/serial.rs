@@ -15,7 +15,7 @@ pub struct Msg {
 pub struct Serial {
 	port: SerialPort,
 	port_name: PathBuf,
-	receiver: std::sync::mpsc::Receiver<Msg>,
+	receiver: std::sync::mpsc::Receiver<(Option<Msg>, String)>,
 }
 
 impl Serial {
@@ -32,9 +32,9 @@ impl Serial {
 		})
 	}
 
-	pub fn collect_messages(&mut self, mut callback: impl FnMut(Msg)) {
-		while let Ok(msg) = self.receiver.try_recv() {
-			callback(msg);
+	pub fn collect_messages(&mut self, mut callback: impl FnMut(Option<Msg>, String)) {
+		while let Ok((msg, raw_msg)) = self.receiver.try_recv() {
+			callback(msg, raw_msg);
 		}
 	}
 
@@ -80,24 +80,21 @@ impl Serial {
 		})
 	}
 
-	fn listen_thread(port: SerialPort, sender: std::sync::mpsc::Sender<Msg>) {
-		let mut msg = String::new();
+	fn listen_thread(port: SerialPort, sender: std::sync::mpsc::Sender<(Option<Msg>, String)>) {
+		let mut raw_msg = String::new();
 		let mut current_byte = [0_u8];
 		loop {
 			match port.read(&mut current_byte) {
 				Ok(bytes_read) => {
 					if bytes_read == 1 {
 						if current_byte[0] == b'\n' {
-							if let Some(msg) = Self::parse_msg(&msg) {
-								if sender.send(msg).is_err() {
-									return; // the receiver was dropped -> close this thread
-								}
+							let msg = Self::parse_msg(&raw_msg);
+							if sender.send((msg, std::mem::take(&mut raw_msg))).is_err() {
+								return; // the receiver was dropped -> close this thread
 							}
-							
-							msg.clear();
 						}
 						else {
-							msg.push(current_byte[0] as char);
+							raw_msg.push(current_byte[0] as char);
 						}
 					}
 				},

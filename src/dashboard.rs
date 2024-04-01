@@ -2,8 +2,11 @@ use eframe::egui;
 use crate::serial::{Serial, Msg};
 use crate::widgets::{circle, horizontal_percentage_bar, show_plot, vertical_percentage_bar, wheel};
 
+const MESSAGES: usize = 500;
+
 pub struct Dashboard {
-	messages: [Msg; 500],
+	messages: [Msg; MESSAGES],
+	raw_messages: Vec<String>,
 	current_message_index: usize,
 	serial: Option<Serial>,
 	port_name: Option<std::path::PathBuf>,
@@ -14,8 +17,13 @@ pub struct Dashboard {
 
 impl Dashboard {
 	pub fn new() -> Self {
+		let mut raw_messages = Vec::with_capacity(MESSAGES);
+		for _ in 0..MESSAGES {
+			raw_messages.push(String::new());
+		}
 		Self {
-			messages: [Msg::default(); 500],
+			messages: [Msg::default(); MESSAGES],
+			raw_messages,
 			current_message_index: 0,
 			serial: None,
 			port_name: None,
@@ -40,16 +48,19 @@ impl Dashboard {
 		}
 
 		if let Some(serial) = &mut self.serial {
-			serial.collect_messages(|msg| {
+			serial.collect_messages(|msg, raw_msg| {
 				self.current_message_index = (self.current_message_index + 1) % self.messages.len();
-				self.messages[self.current_message_index % self.messages.len()] = msg;
+				if let Some(msg) = msg {
+					self.messages[self.current_message_index % self.messages.len()] = msg;
+				}
+				self.raw_messages[self.current_message_index] = raw_msg;
 			});
 		}
 
 		// background
 		ui.painter().rect_filled(egui::Rect::from_min_max(egui::pos2(0.0, 0.0), ui.ctx().screen_rect().size().to_pos2()), 0.0, egui::Color32::BLACK);
 
-		if pick_port_ui(ui, &mut self.port_name) {
+		if Self::pick_port_ui(ui, &mut self.port_name) {
 			self.serial = self.port_name.as_ref().map(|port_name| Serial::new(port_name).unwrap());
 		}
 
@@ -94,30 +105,40 @@ impl Dashboard {
 
 		ui.label("right_sensor:");
 		circle(ui, 25.0, if current_msg.right_sensor { egui::Color32::WHITE } else { egui::Color32::BLACK });
-	}
-}
 
-// returns wether port changed
-fn pick_port_ui(ui: &mut egui::Ui, port_name: &mut Option<std::path::PathBuf>) -> bool {
-	if let Ok(ports) = Serial::available_ports() {
-		let mut changed = false;
-		egui::ComboBox::from_label("Pick port")
-			.selected_text(port_name.clone().unwrap_or(std::path::PathBuf::from("Pick port")).to_str().unwrap())
-			.show_ui(ui, |ui| {
-				if ui.selectable_value(port_name, None, "None").changed() {
-					changed = true;
-				}
-
-				for name in ports {
-					if ui.selectable_value(port_name, Some(name.clone()), name.to_str().unwrap()).changed() {
-						changed = true;
-					}
+		ui.label("raw messages:");
+		egui::ScrollArea::vertical()
+			.stick_to_bottom(true)
+			.show(ui, |ui| {
+				for i in 1..self.raw_messages.len()+1 {
+					let index = (i + self.current_message_index) % self.raw_messages.len();
+					ui.label(&self.raw_messages[index]);	
 				}
 			});
-		changed
 	}
-	else {
-		ui.colored_label(egui::Color32::RED, "Failed to get ports");
-		false
+
+	// returns wether port changed
+	fn pick_port_ui(ui: &mut egui::Ui, port_name: &mut Option<std::path::PathBuf>) -> bool {
+		if let Ok(ports) = Serial::available_ports() {
+			let mut changed = false;
+			egui::ComboBox::from_label("Pick port")
+				.selected_text(port_name.clone().unwrap_or(std::path::PathBuf::from("Pick port")).to_str().unwrap())
+				.show_ui(ui, |ui| {
+					if ui.selectable_value(port_name, None, "None").changed() {
+						changed = true;
+					}
+
+					for name in ports {
+						if ui.selectable_value(port_name, Some(name.clone()), name.to_str().unwrap()).changed() {
+							changed = true;
+						}
+					}
+				});
+			changed
+		}
+		else {
+			ui.colored_label(egui::Color32::RED, "Failed to get ports");
+			false
+		}
 	}
 }

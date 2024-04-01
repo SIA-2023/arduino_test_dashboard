@@ -8,7 +8,7 @@ mod serial;
 mod widgets;
 
 fn main() -> Result<(), eframe::Error> {
-	let viewport = egui::ViewportBuilder::default().with_inner_size([1200.0, 850.0]);
+	let viewport = egui::ViewportBuilder::default().with_inner_size([1200.0, 1050.0]);
 	let options = eframe::NativeOptions{ viewport, ..Default::default() };
 	let mut dashboard = Dashboard::new();
 
