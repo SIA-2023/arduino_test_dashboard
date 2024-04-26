@@ -63,28 +63,35 @@ impl Dashboard {
 		if Self::pick_port_ui(ui, &mut self.port_name) {
 			self.serial = self.port_name.as_ref().map(|port_name| Serial::new(port_name).unwrap());
 		}
-
-		if let Some(serial) = self.serial.as_ref() {
-			ui.label("Controls:");
-
-			if ui.add(egui::Slider::new(&mut self.kp, 0.0..=1.0).text("kp")).changed() {
-				let _ = serial.set_value('p', self.kp);
-			}
-			if ui.add(egui::Slider::new(&mut self.ki, 0.0..=1.0).text("ki")).changed() {
-				let _ = serial.set_value('i', self.ki);
-			}
-			if ui.add(egui::Slider::new(&mut self.kd, 0.0..=1.0).text("kd")).changed() {
-				let _ = serial.set_value('d', self.kd);
-			}
-		}
-
+		
 		let current_msg = &self.messages[self.current_message_index];
 
-		ui.label(format!("kp = {}", current_msg.kp));
-		ui.label(format!("ki = {}", current_msg.ki));
-		ui.label(format!("kd = {}", current_msg.kd));
+		ui.horizontal(|ui| {
+			ui.vertical(|ui| {
+				if let Some(serial) = self.serial.as_ref() {
+					ui.heading("Controls:");
 		
-		ui.label("left_motor:");
+					if ui.add(egui::Slider::new(&mut self.kp, 0.0..=1.0).text("kp")).changed() {
+						let _ = serial.set_value('p', self.kp);
+					}
+					if ui.add(egui::Slider::new(&mut self.ki, 0.0..=1.0).text("ki")).changed() {
+						let _ = serial.set_value('i', self.ki);
+					}
+					if ui.add(egui::Slider::new(&mut self.kd, 0.0..=1.0).text("kd")).changed() {
+						let _ = serial.set_value('d', self.kd);
+					}
+				}
+			});
+			ui.add_space(15.0);
+			ui.vertical(|ui| {
+				ui.heading("Arduino PID-Constants:");
+				ui.label(format!("kp = {}", current_msg.kp));
+				ui.label(format!("ki = {}", current_msg.ki));
+				ui.label(format!("kd = {}", current_msg.kd));
+			});
+		});
+		
+		ui.heading("left_motor:");
 		ui.horizontal(|ui| {
 			vertical_percentage_bar(ui, current_msg.left_motor.abs() as f32 / 255.0, egui::vec2(30.0, 100.0));
 			horizontal_percentage_bar(ui, current_msg.left_motor.abs() as f32 / 255.0, egui::vec2(100.0, 30.0));
@@ -92,7 +99,7 @@ impl Dashboard {
 		});
 		show_plot(ui, "left_motor", &self.messages, self.current_message_index, |msg| msg.left_motor as f64);
 		
-		ui.label("right_motor:");
+		ui.heading("right_motor:");
 		ui.horizontal(|ui| {
 			vertical_percentage_bar(ui, current_msg.right_motor.abs() as f32 / 255.0, egui::vec2(30.0, 100.0));
 			horizontal_percentage_bar(ui, current_msg.right_motor.abs() as f32 / 255.0, egui::vec2(100.0, 30.0));
@@ -100,13 +107,19 @@ impl Dashboard {
 		});
 		show_plot(ui, "right_motor", &self.messages, self.current_message_index, |msg| msg.right_motor as f64);
 		
-		ui.label("left_sensor:");
-		circle(ui, 25.0, if current_msg.left_sensor { egui::Color32::WHITE } else { egui::Color32::BLACK });
+		ui.horizontal(|ui| {
+			ui.vertical(|ui| {
+				ui.heading("left_sensor:");
+				circle(ui, 25.0, if current_msg.left_sensor { egui::Color32::WHITE } else { egui::Color32::BLACK });
+			});
+			ui.add_space(15.0);
+			ui.vertical(|ui| {
+				ui.heading("right_sensor:");
+				circle(ui, 25.0, if current_msg.right_sensor { egui::Color32::WHITE } else { egui::Color32::BLACK });
+			});
+		});
 
-		ui.label("right_sensor:");
-		circle(ui, 25.0, if current_msg.right_sensor { egui::Color32::WHITE } else { egui::Color32::BLACK });
-
-		ui.label("raw messages:");
+		ui.heading("raw messages:");
 		egui::ScrollArea::vertical()
 			.stick_to_bottom(true)
 			.show(ui, |ui| {
