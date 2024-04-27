@@ -63,14 +63,29 @@ impl Dashboard {
 		if Self::pick_port_ui(ui, &mut self.port_name) {
 			self.serial = self.port_name.as_ref().map(|port_name| Serial::new(port_name).unwrap());
 		}
+		ui.add_space(15.0);
 		
 		let current_msg = &self.messages[self.current_message_index];
 
+		// sensors
 		ui.horizontal(|ui| {
 			ui.vertical(|ui| {
-				if let Some(serial) = self.serial.as_ref() {
+				ui.heading("left_sensor:");
+				circle(ui, 25.0, if current_msg.left_sensor { egui::Color32::WHITE } else { egui::Color32::BLACK });
+			});
+			ui.add_space(40.0);
+			ui.vertical(|ui| {
+				ui.heading("right_sensor:");
+				circle(ui, 25.0, if current_msg.right_sensor { egui::Color32::WHITE } else { egui::Color32::BLACK });
+			});
+		});
+		ui.add_space(15.0);
+
+		// constants
+		if let Some(serial) = self.serial.as_ref() {
+			ui.horizontal(|ui| {
+				ui.vertical(|ui| {
 					ui.heading("Controls:");
-		
 					if ui.add(egui::Slider::new(&mut self.kp, 0.0..=1.0).text("kp")).changed() {
 						let _ = serial.set_value('p', self.kp);
 					}
@@ -80,44 +95,49 @@ impl Dashboard {
 					if ui.add(egui::Slider::new(&mut self.kd, 0.0..=1.0).text("kd")).changed() {
 						let _ = serial.set_value('d', self.kd);
 					}
-				}
+				});
+				ui.add_space(40.0);
+				ui.vertical(|ui| {
+					ui.heading("Arduino PID-Constants:");
+					ui.label(format!("kp = {}", current_msg.kp));
+					ui.label(format!("ki = {}", current_msg.ki));
+					ui.label(format!("kd = {}", current_msg.kd));
+				});
 			});
-			ui.add_space(15.0);
-			ui.vertical(|ui| {
-				ui.heading("Arduino PID-Constants:");
-				ui.label(format!("kp = {}", current_msg.kp));
-				ui.label(format!("ki = {}", current_msg.ki));
-				ui.label(format!("kd = {}", current_msg.kd));
-			});
-		});
-		
-		ui.heading("left_motor:");
-		ui.horizontal(|ui| {
-			vertical_percentage_bar(ui, current_msg.left_motor.abs() as f32 / 255.0, egui::vec2(30.0, 100.0));
-			horizontal_percentage_bar(ui, current_msg.left_motor.abs() as f32 / 255.0, egui::vec2(100.0, 30.0));
-			wheel(ui, current_msg.left_motor as f32 / 255.0, egui::vec2(30.0, 100.0));
-		});
-		show_plot(ui, "left_motor", &self.messages, self.current_message_index, |msg| msg.left_motor as f64);
-		
-		ui.heading("right_motor:");
-		ui.horizontal(|ui| {
-			vertical_percentage_bar(ui, current_msg.right_motor.abs() as f32 / 255.0, egui::vec2(30.0, 100.0));
-			horizontal_percentage_bar(ui, current_msg.right_motor.abs() as f32 / 255.0, egui::vec2(100.0, 30.0));
-			wheel(ui, current_msg.right_motor as f32 / 255.0, egui::vec2(30.0, 100.0));
-		});
-		show_plot(ui, "right_motor", &self.messages, self.current_message_index, |msg| msg.right_motor as f64);
-		
+			ui.add_space(15.0);	
+		}
+
+		// motors
 		ui.horizontal(|ui| {
 			ui.vertical(|ui| {
-				ui.heading("left_sensor:");
-				circle(ui, 25.0, if current_msg.left_sensor { egui::Color32::WHITE } else { egui::Color32::BLACK });
+				ui.heading("left_motor:");
+				ui.horizontal(|ui| {
+					vertical_percentage_bar(ui, current_msg.left_motor.abs() as f32 / 255.0, egui::vec2(30.0, 100.0));
+					horizontal_percentage_bar(ui, current_msg.left_motor.abs() as f32 / 255.0, egui::vec2(100.0, 30.0));
+					wheel(ui, current_msg.left_motor as f32 / 255.0, egui::vec2(30.0, 100.0));
+				});
 			});
-			ui.add_space(15.0);
+			ui.add_space(40.0);
 			ui.vertical(|ui| {
-				ui.heading("right_sensor:");
-				circle(ui, 25.0, if current_msg.right_sensor { egui::Color32::WHITE } else { egui::Color32::BLACK });
+				ui.heading("right_motor:");
+				ui.horizontal(|ui| {
+					vertical_percentage_bar(ui, current_msg.right_motor.abs() as f32 / 255.0, egui::vec2(30.0, 100.0));
+					horizontal_percentage_bar(ui, current_msg.right_motor.abs() as f32 / 255.0, egui::vec2(100.0, 30.0));
+					wheel(ui, current_msg.right_motor as f32 / 255.0, egui::vec2(30.0, 100.0));
+				});
 			});
 		});
+		ui.add_space(15.0);
+		
+
+		let (left_rect, right_rect) = egui::Rect::from_min_size(ui.cursor().min, ui.available_size()).split_left_right_at_fraction(0.5);
+		let mut left = ui.child_ui(left_rect, egui::Layout::default());
+		let y_start = ui.cursor().min.y;
+		show_plot(&mut left, "left_motor", &self.messages, self.current_message_index, |msg| msg.left_motor as f64);
+		let mut right = ui.child_ui(right_rect, egui::Layout::default());		
+		show_plot(&mut right, "right_motor", &self.messages, self.current_message_index, |msg| msg.right_motor as f64);
+		ui.add_space(left.cursor().min.y - y_start);
+		ui.add_space(15.0);
 
 		ui.heading("raw messages:");
 		egui::ScrollArea::vertical()

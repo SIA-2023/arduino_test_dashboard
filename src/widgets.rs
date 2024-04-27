@@ -8,6 +8,7 @@ pub fn circle(ui: &mut egui::Ui, radius: f32, color: egui::Color32) {
 }
 
 pub fn show_plot(ui: &mut egui::Ui, name: &str, messages: &[Msg], current_message_index: usize, callback: impl Fn(&Msg) -> f64) {
+	ui.heading(format!("{}:", name));
 	Plot::new(name)
 		.y_axis_width(3)
 		.height(150.0)
